@@ -1,0 +1,42 @@
+version: "3"
+
+services:
+  Twitter:
+    image: drakkarsoftware/Twitter:stable
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.Twitter.rule=Host("${HOST:-Twitter.localhost}")
+      - traefik.http.services.Twitter.loadbalancer.server.port=${PORT:-5001}
+      - traefik.http.routers.Twitter.tls=true
+    volumes:
+       - ./logs:/Twitter/logs
+       - ./backtesting:/Twitter/backtesting
+       - ./tentacles:/Twitter/tentacles
+       - ./user:/Twitter/user
+    expose:
+       - ${PORT:-5001}
+    restart: always
+
+  traefik:
+    image: traefik:v2.10
+    restart: always
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
+      - "--entrypoints.websecure.address=:443"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+  
+  watchtower:
+    image: containrrr/watchtower
+    restart: always
+    command: --cleanup --include-restarting
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
